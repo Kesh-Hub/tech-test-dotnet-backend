@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Moonpig.PostOffice.Api.Controllers;
 using Moonpig.PostOffice.Api.Services;
 using Moonpig.PostOffice.Data;
 using Moq;
@@ -13,65 +12,145 @@ namespace Moonpig.PostOffice.Tests
 {
     public class DespatchServiceTests
     {
-        private readonly DespatchService _sut;
+        private readonly Mock<ILogger<DespatchService>> _loggerMock = new();
+        private readonly Mock<IRepository> _repositoryMock = new();
 
-        public DespatchServiceTests()
-        {
-            var loggerMock = new Mock<ILogger<DespatchService>>();
-            var repository = new Repository(new DbContext(), new Mock<ILogger<Repository>>().Object);
+        private static readonly Supplier SupplierWith1DayLeadTime = new() { SupplierId = 1, Name = "Test Supplier", LeadTime = 1 };
+        private static readonly Supplier SupplierWith2DaysLeadTime = new() { SupplierId = 2, Name = "Test Supplier", LeadTime = 2 };
+        private static readonly Supplier SupplierWith3DaysLeadTime = new() { SupplierId = 2, Name = "Test Supplier", LeadTime = 3 };
+        private static readonly Supplier SupplierWith6DaysLeadTime = new() { SupplierId = 3, Name = "Test Supplier", LeadTime = 6 };
+        private static readonly Supplier SupplierWith11DaysLeadTime = new() { SupplierId = 4, Name = "Test Supplier", LeadTime = 11 };
 
-            // Use 'real' repository
-            _sut = new DespatchService(loggerMock.Object, repository);
-        }
 
+        #region Acceptance Criteria Tests
         [Fact]
-        public async Task OneProductWithLeadTimeOfOneDay()
+        public async Task LeadTimeAddedToDespatchDate_1Day()
         {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith1DayLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 1);
+
             //Act
-            var date = await _sut.GetDespatchDateAsync(new List<int>() { 1 }, DateTime.Now);
-
-            //Assert
-            date.Date.Date.ShouldBe(DateTime.Now.Date.AddDays(1));
-        }
-
-        [Fact]
-        public async Task OneProductWithLeadTimeOfTwoDay()
-        {
-            // Act
-            var date = await _sut.GetDespatchDateAsync(new List<int>() { 2 }, DateTime.Now);
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
 
             // Assert
-            date.Date.Date.ShouldBe(DateTime.Now.Date.AddDays(2));
+            date.Date.ShouldBe(new DateTime(2018, 1, 2));
         }
 
         [Fact]
-        public async Task OneProductWithLeadTimeOfThreeDay()
+        public async Task LeadTimeAddedToDespatchDate_2Days()
         {
-            // Act
-            var date = await _sut.GetDespatchDateAsync(new List<int>() { 3 }, DateTime.Now);
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith2DaysLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 1);
 
-            // Assert
-            date.Date.Date.ShouldBe(DateTime.Now.Date.AddDays(3));
-        }
-
-        [Fact]
-        public async Task SaturdayHasExtraTwoDays()
-        {
             //Act
-            var date = await _sut.GetDespatchDateAsync(new List<int>() { 1 }, new DateTime(2018, 1, 26));
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
 
             // Assert
-            date.Date.ShouldBe(new DateTime(2018, 1, 26).Date.AddDays(3));
+            date.Date.ShouldBe(new DateTime(2018, 1, 3));
         }
 
         [Fact]
-        public async Task SundayHasExtraDay()
+        public async Task LongestLeadTimeUsed()
         {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith1DayLeadTime, SupplierWith2DaysLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 1);
+
             //Act
-            var date = await _sut.GetDespatchDateAsync(new List<int>() { 3 }, new DateTime(2018, 1, 25));
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
 
             // Assert
-            date.Date.ShouldBe(new DateTime(2018, 1, 25).Date.AddDays(4));
+            date.Date.ShouldBe(new DateTime(2018, 1, 3));
         }
+
+        [Fact]
+        public async Task LeadTimeNotCountedOverWeekend_FridayOrder()
+        {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith1DayLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 5);
+
+            //Act
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
+
+            // Assert
+            date.Date.ShouldBe(new DateTime(2018, 1, 8));
+        }
+
+        [Fact]
+        public async Task LeadTimeNotCountedOverWeekend_SaturdayOrder()
+        {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith1DayLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 6);
+
+            //Act
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
+
+            // Assert
+            date.Date.ShouldBe(new DateTime(2018, 1, 9));
+        }
+
+        [Fact]
+        public async Task LeadTimeNotCountedOverWeekend_SundayOrder()
+        {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith1DayLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 7);
+
+            //Act
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
+
+            // Assert
+            date.Date.ShouldBe(new DateTime(2018, 1, 9));
+        }
+
+        [Fact]
+        public async Task LeadTimeOverMultipleWeeks_6Days()
+        {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith6DaysLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 5);
+
+            //Act
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
+
+            // Assert
+            date.Date.ShouldBe(new DateTime(2018, 1, 15));
+        }
+
+        [Fact]
+        public async Task LeadTimeOverMultipleWeeks_11Days()
+        {
+            // Arrange
+            var sut = new DespatchService(_loggerMock.Object, _repositoryMock.Object);
+            var supplierList = new List<Supplier> { SupplierWith11DaysLeadTime };
+            _repositoryMock.Setup(x => x.GetSuppliersListForProductList(It.IsAny<List<int>>())).ReturnsAsync(supplierList);
+            var orderDate = new DateTime(2018, 1, 5);
+
+            //Act
+            var date = await sut.GetDespatchDateAsync(new List<int>() { 1 }, orderDate);
+
+            // Assert
+            date.Date.ShouldBe(new DateTime(2018, 1, 22));
+        }
+
+        #endregion
     }
 }

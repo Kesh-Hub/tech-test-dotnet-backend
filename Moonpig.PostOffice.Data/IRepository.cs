@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Moonpig.PostOffice.Data
 {
@@ -10,12 +11,12 @@ namespace Moonpig.PostOffice.Data
         /// <param name="productId"></param>
         /// <returns></returns>
         Task<Product> GetProduct(int productId);
-
+        
         /// <summary>
-        /// Returns the Supplier details for a product id
+        /// Returns the list of Supplier for the list of products
         /// </summary>
         /// <param name="productId"></param>
         /// <returns></returns>
-        Task<Supplier> GetSupplierForProduct(int productId);
+        Task<IEnumerable<Supplier>> GetSuppliersListForProductList(List<int> productIds);
     }
 }

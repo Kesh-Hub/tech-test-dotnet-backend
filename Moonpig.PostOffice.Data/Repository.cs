@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -24,25 +23,27 @@ namespace Moonpig.PostOffice.Data
             return await Task.FromResult(_dbContext.Products.FirstOrDefault(p => p.ProductId.Equals(productId)));
         }
 
-        public async Task<Supplier> GetSupplierForProduct(int productId)
+        public async Task<IEnumerable<Supplier>> GetSuppliersListForProductList(List<int> productIds)
         {
-            var product = await Task.FromResult(_dbContext.Products.FirstOrDefault(p => p.ProductId.Equals(productId)));
+            var products = await Task.FromResult(_dbContext.Products.Where(p => productIds.Contains(p.ProductId)));
 
-            if (product == null)
+            if (products == null || !products.Any())
             {
-                _logger.LogError($"Unable to find supplier for product Id {productId}");
-                throw new KeyNotFoundException(nameof(productId));
+                _logger.LogError("Unable to find product ids");
+                throw new KeyNotFoundException(nameof(productIds));
             }
 
-            var supplier = await Task.FromResult(_dbContext.Suppliers.FirstOrDefault(s => s.SupplierId.Equals(product.SupplierId)));
+            var supplierIdsForProducts = products.Select(x => x.SupplierId);
 
-            if (supplier == null)
+            var suppliers = await Task.FromResult(_dbContext.Suppliers.Where(s => supplierIdsForProducts.Contains(s.SupplierId)));
+
+            if (suppliers == null || !suppliers.Any())
             {
-                _logger.LogError($"Unable to find supplier for supplier Id {product.SupplierId}");
-                throw new KeyNotFoundException(nameof(product.SupplierId));
+                _logger.LogError($"Unable to find suppliers for product list");
+                throw new KeyNotFoundException(nameof(supplierIdsForProducts));
             }
 
-            return supplier;
+            return suppliers;
         }
     }
 }
