@@ -1,35 +1,52 @@
-﻿namespace Moonpig.PostOffice.Api.Controllers
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using Data;
-    using Microsoft.AspNetCore.Mvc;
-    using Model;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Moonpig.PostOffice.Api.Services;
 
+namespace Moonpig.PostOffice.Api.Controllers
+{
     [Route("api/[controller]")]
     public class DespatchDateController : Controller
     {
-        public DateTime _mlt;
+        private readonly ILogger<DespatchDateController> _logger;
+        private readonly IDespatchService _despatchService;
+
+        #region Constructor
+        public DespatchDateController(ILogger<DespatchDateController> logger, IDespatchService despatchService)
+        {
+            _logger = logger;
+            _despatchService = despatchService;
+        } 
+        #endregion
 
         [HttpGet]
-        public DespatchDate Get(List<int> productIds, DateTime orderDate)
+        public async Task<IActionResult> Get(List<int> productIds, DateTime orderDate)
         {
-            _mlt = orderDate; // max lead time
-            foreach (var ID in productIds)
+            try
             {
-                DbContext dbContext = new DbContext();
-                var s = dbContext.Products.Single(x => x.ProductId == ID).SupplierId;
-                var lt = dbContext.Suppliers.Single(x => x.SupplierId == s).LeadTime;
-                if (orderDate.AddDays(lt) > _mlt)
-                    _mlt = orderDate.AddDays(lt);
+                if (productIds == null || productIds.Count == 0)
+                    return BadRequest("Invalid Product Id.");
+
+                if (orderDate == DateTime.MinValue || orderDate == DateTime.MaxValue)
+                    return BadRequest("Invalid Order Date.");
+
+                var despatchDate = await _despatchService.GetDespatchDateAsync(productIds, orderDate);
+                return Ok(despatchDate);
             }
-            if (_mlt.DayOfWeek == DayOfWeek.Saturday)
+            catch (Exception e)
             {
-                return new DespatchDate { Date = _mlt.AddDays(2) };
+                _logger.LogError(e, "Failed to get despatch date");
+
+                // Thrown when product/supplier not found
+                if (e is KeyNotFoundException)
+                    return NotFound();
+
+                // Throw a 500 error if we don't know what's wrong.
+                return new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
-            else if (_mlt.DayOfWeek == DayOfWeek.Sunday) return new DespatchDate { Date = _mlt.AddDays(1) };
-            else return new DespatchDate { Date = _mlt };
         }
     }
 }

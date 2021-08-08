@@ -1,4 +1,7 @@
-﻿namespace Moonpig.PostOffice.Api
+﻿using Moonpig.PostOffice.Api.Services;
+using Moonpig.PostOffice.Data;
+
+namespace Moonpig.PostOffice.Api
 {
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
@@ -18,6 +21,11 @@
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // Dependency Injection
+            services.AddScoped<IDbContext, DbContext>();
+            services.AddScoped<IRepository, Repository>();
+            services.AddScoped<IDespatchService, DespatchService>();
+
             services.AddControllers();
         }
 
