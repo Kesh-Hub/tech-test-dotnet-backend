@@ -99,13 +99,30 @@ document.
 
 Q1. What 'code smells' / anti-patterns did you find in the existing 
 	implementation of part 1 & 2?
+	- Code was not following SOLID principles. Get Method in constructor was responsible in doing a DB connection, processing and returning results 
+	i.e. violating the Single-Responsibility principle as well as the dependency inversion principle.
+	- Variable names did not match naming conventions and did not have a descriptive name.
+	- Using statements were defined within the namespace rather than the class.
+	- Unit Tests input data was not static and would lead to different results on different days.
 
 Q2. What best practices have you used while implementing your solution?
+	- Implemented changes using SOLID principles.
+	- Reduced the number of DB calls.
+	- Ensure a Status Code is returned for all calls made to the API.
+	- Handled unknown exceptions and added logging to help debug issues.
+	- Used dependency injection across the solution.
 
 Q3. What further steps would you take to improve the solution given more time?
+	- Improve on test coverage.
+	- Improve Unit Tests to use Fixtures/Builders.
+	- Add security/permissions to API call.
 
 Q4. What's a technology that you're excited about and where do you see this 
     being applicable? (Your answer does not have to be related to this problem)
+	- .NET Hot Reload (in .NET 6)
+	This will allow modifications to be done in the code while the application is running. 
+	It will make the development process much faster as there will be less time waiting for rebuilding an application.
+
 
 ## Request and Response Examples
 
